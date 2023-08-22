@@ -1,0 +1,6 @@
+how to compile and run:
+	mkdir build
+	cd build
+	cmake ..
+	make
+	./bin/webserver
