@@ -131,7 +131,8 @@ void WebServer::event_listen(){
     fflush(mainfp);
     assert(ret>=0);
 
-    utils.init(TIMESLOT);
+    //utils.init(TIMESLOT);
+    utils.init();
 
     epoll_event events[MAX_EVENT_NUMBER];
     m_epollfd=epoll_create(5);
@@ -163,32 +164,51 @@ void WebServer::timer(int connfd,struct sockaddr_in client_address)
 
     client_data[connfd].addr=client_address;
     client_data[connfd].sockfd=connfd;
+    //sorted link
+    // ClassTimer *timer=new ClassTimer;
+    // timer->client_data=&client_data[connfd];
+    // timer->cb_func=cb_func;
+    // time_t cur=time(NULL);
+    // timer->expire=cur+3*TIMESLOT;
 
-    ClassTimer *timer=new ClassTimer;
-    timer->client_data=&client_data[connfd];
-    timer->cb_func=cb_func;
-    time_t cur=time(NULL);
-    timer->expire=cur+3*TIMESLOT;
+    // client_data[connfd].timer=timer;
 
+    // utils.m_timer_lst.add_timer(timer);
+
+    //timeWheel
+    TWTimer *timer=utils.m_time_wheel.add_timer(3*TIMESLOT);
     client_data[connfd].timer=timer;
-
-    utils.m_timer_lst.add_timer(timer);
     LOG_INFO("add timer SUCCESS;timer: %s",timer);
 
 }
 
-void WebServer::adjust_timer(ClassTimer *timer){
-    time_t cur=time(NULL);
-    timer->expire=cur+3*TIMESLOT;
-    utils.m_timer_lst.adjust_timer(timer);
+// void WebServer::adjust_timer(ClassTimer *timer){
+//     time_t cur=time(NULL);
+//     timer->expire=cur+3*TIMESLOT;
+//     utils.m_timer_lst.adjust_timer(timer);
 
-    LOG_INFO("%s","adjust timer once");
+//     LOG_INFO("%s","adjust timer once");
+// }
+
+void WebServer::adjust_timer(TWTimer *timer,int sockfd){
+    utils.m_time_wheel.del_timer(timer);
+    TWTimer *timer2=utils.m_time_wheel.add_timer(3*TIMESLOT);
+    client_data[sockfd].timer=timer2;
+    LOG_INFO("adjust timer SUCCESS; new timer: %s",timer2);
 }
 
-void WebServer::deal_timer(ClassTimer *timer,int sockfd){
+// void WebServer::deal_timer(ClassTimer *timer,int sockfd){
+//     timer->cb_func(&client_data[sockfd]);
+//     if(timer){
+//         utils.m_timer_lst.del_timer(timer);
+//     }
+//     LOG_INFO("close fd %d",client_data[sockfd].sockfd);
+// }
+
+void WebServer::deal_timer(TWTimer *timer,int sockfd){
     timer->cb_func(&client_data[sockfd]);
     if(timer){
-        utils.m_timer_lst.del_timer(timer);
+        utils.m_time_wheel.del_timer(timer);
     }
     LOG_INFO("close fd %d",client_data[sockfd].sockfd);
 }
@@ -260,12 +280,12 @@ bool WebServer::deal_signal(bool &timeout,bool &stop_server){
 }
 
 void WebServer::deal_read(int sockfd){
-	ClassTimer *timer=client_data[sockfd].timer;
+	TWTimer *timer=client_data[sockfd].timer;
 
 	//reactor
 	if(1==m_actormodel){
         if(timer){
-            adjust_timer(timer);
+            adjust_timer(timer,sockfd);
         }
         m_threadPool->append(users+sockfd,0);
 
@@ -288,7 +308,7 @@ void WebServer::deal_read(int sockfd){
             m_threadPool->append_p(users+sockfd);
 
             if(timer){
-                adjust_timer(timer);
+                adjust_timer(timer,sockfd);
             }
         }
         else{
@@ -297,12 +317,14 @@ void WebServer::deal_read(int sockfd){
     }
 }
 
+
+
 void WebServer::deal_write(int sockfd){
-    ClassTimer *timer=client_data[sockfd].timer;
+    TWTimer *timer=client_data[sockfd].timer;
     //reactor
     if(1==m_actormodel){
         if(timer){
-            adjust_timer(timer);
+            adjust_timer(timer,sockfd);
         }
         m_threadPool->append(users+sockfd,1);
 
@@ -323,7 +345,7 @@ void WebServer::deal_write(int sockfd){
             LOG_INFO("send data to the client(%s)",inet_ntoa(users[sockfd].get_address()->sin_addr));
 
             if(timer){
-                adjust_timer(timer);
+                adjust_timer(timer,sockfd);
             }
         }
         else{
@@ -357,7 +379,7 @@ void WebServer::event_loop(){
                     continue;
             }
             else if(events[i].events&(EPOLLRDHUP|EPOLLHUP|EPOLLERR)){
-                ClassTimer *timer=client_data[sockfd].timer;
+                TWTimer *timer=client_data[sockfd].timer;
                 deal_timer(timer,sockfd);
             }
             else if((sockfd==m_pipefd[0])&&(events[i].events&EPOLLIN)){
