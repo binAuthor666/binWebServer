@@ -3,4 +3,5 @@ how to compile and run:
 	cd build
 	cmake ..
 	make
+	cp -r ../src/root ./bin 
 	./bin/webserver
