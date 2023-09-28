@@ -5,3 +5,19 @@ how to compile and run:
 	make
 	cp -r ../src/root ./bin 
 	./bin/webserver
+	
+
+
+	
+cmake构建的项目该如何添加“-g”编译选项
+
+第一种
+
+修改CMakelist.txt， 添加“add_definitions("-Wall -g")”行；
+
+第二种
+
+ 执行cmake时，添加-DCMAKE_BUILD_TYPE=Debug编译选项。
+
+cmake -DCMAKE_BUILD_TYPE=Debug ......
+
