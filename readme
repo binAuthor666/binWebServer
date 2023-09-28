@@ -21,3 +21,23 @@ cmake构建的项目该如何添加“-g”编译选项
 
 cmake -DCMAKE_BUILD_TYPE=Debug ......
 
+
+
+配置coredump文件
+ulimit -c unlimited
+mkdir /var/cores
+chmod 777 /var/cores
+echo "/var/cores/core.%e.%p" > /proc/sys/kernel/core_pattern
+echo 2 > /proc/sys/fs/suid_dumpable
+
+
+
+使用gdb调试core文件
+
+#gdb -c /home/coredump_file/core-pperf-19395-1584497577
+
+(gdb) list //列出源码，显示行号
+
+
+(gdb) file
+
