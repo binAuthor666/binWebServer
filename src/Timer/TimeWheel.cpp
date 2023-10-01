@@ -38,6 +38,7 @@ TWTimer* TimeWheel::add_timer(int timeout){
 
     //this slot is null
     if(!slots[slot]){
+        printf("add timer,rotation is %d,slot is %d,cur_slot is %d\n",rotation,slot,cur_slot);
         slots[slot]=timer;
     }
     else{
@@ -83,6 +84,7 @@ void TimeWheel::tick(){
             tmp->cb_func(tmp->clientData);
             //is head
             if(tmp==slots[cur_slot]){
+                printf("delete header in cur_slot\n");
                 slots[cur_slot]=tmp->next;
                 if(slots[cur_slot]){
                     slots[cur_slot]->prev=nullptr;

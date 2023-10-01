@@ -32,7 +32,7 @@ public:
 
 class TWTimer{
 public:
-    TWTimer(int rot,int slot):rotation(rot),time_slot(slot){}
+    TWTimer(int rot,int slot):prev(nullptr),next(nullptr),rotation(rot),time_slot(slot){}
 
 public:
     int rotation;//转多少圈
