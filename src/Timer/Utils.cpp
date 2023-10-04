@@ -55,6 +55,8 @@ int* Utils::u_pipefd = 0;
 int Utils::u_epollfd = 0;
 
 void cb_func(ClientData* client_data) {
+	printf("timer want to close sockfd:%d\n",client_data->sockfd);
+	fflush(stdout);
 	epoll_ctl(Utils::u_epollfd, EPOLL_CTL_DEL, client_data->sockfd, 0);
 	assert(client_data);
 	close(client_data->sockfd);

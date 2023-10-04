@@ -19,6 +19,9 @@ TimeWheel::~TimeWheel(){
 }
 
 TWTimer* TimeWheel::add_timer(int timeout){
+    printf("in TimeWheel::add_timer\n");
+    fflush(stdout);
+    
     if(timeout<0){
         return nullptr;
     }
@@ -36,20 +39,28 @@ TWTimer* TimeWheel::add_timer(int timeout){
 
     TWTimer *timer=new TWTimer(rotation,slot);
 
+    printf("add timer,rotation is %d,slot is %d,cur_slot is %d\n",rotation,slot,cur_slot);
+    fflush(stdout);
     //this slot is null
     if(!slots[slot]){
-        printf("add timer,rotation is %d,slot is %d,cur_slot is %d\n",rotation,slot,cur_slot);
+        printf("this slot is null when add timer\n");
+        fflush(stdout);
         slots[slot]=timer;
     }
     else{
+        printf("this slot is not null when add timer\n");
+        fflush(stdout);
         timer->next=slots[slot];
         slots[slot]->prev=timer;
         slots[slot]=timer;
     }
+
     return timer;
 }
 
 void TimeWheel::del_timer(TWTimer* timer){
+    printf("into TimeWheel::del_timer\n");
+    fflush(stdout);
     if(!timer){
         return;
     }
@@ -76,15 +87,28 @@ void TimeWheel::tick(){
     TWTimer *tmp=slots[cur_slot];
     printf("current slot is %d\n",cur_slot);
     while(tmp){
+        printf("tick the timer %d once\n",tmp->time_slot);
+        printf("rotation:%d\n",tmp->rotation);
         //this round is not arrived
         if(tmp->rotation>0){
+            printf("this round is not arrived\n");
+            fflush(stdout);
             tmp->rotation--;
             tmp=tmp->next;
         }else{
-            tmp->cb_func(tmp->clientData);
+            printf("this round is arrived\n");
+            fflush(stdout);
+            if(tmp->cb_func==nullptr){
+                printf("timer cbfunc is null\n");
+            }else{
+                printf("timer cbfunc is not null\n");
+                tmp->cb_func(tmp->clientData);
+            }
+            
             //is head
             if(tmp==slots[cur_slot]){
                 printf("delete header in cur_slot\n");
+                fflush(stdout);
                 slots[cur_slot]=tmp->next;
                 if(slots[cur_slot]){
                     slots[cur_slot]->prev=nullptr;
@@ -93,6 +117,8 @@ void TimeWheel::tick(){
                 tmp=slots[cur_slot];
             }
             else{
+                printf("delete body in cur_slot\n");
+                fflush(stdout);
                 tmp->prev->next=tmp->next;
                 if(tmp->next){
                     tmp->next->prev=tmp->prev;

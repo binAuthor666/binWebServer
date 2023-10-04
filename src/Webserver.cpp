@@ -94,11 +94,11 @@ void WebServer::thread_pool(){
 }
 
 void WebServer::event_listen(){
-    extern FILE *mainfp;
+    //extern FILE *mainfp;
     m_listenfd=socket(PF_INET,SOCK_STREAM,0);
     //LOG_INFO("%s,[%d]","listenfd create!",m_listenfd);
-    fputs("listenfd create!\n",mainfp);
-    fflush(mainfp);
+    //fputs("listenfd create!\n",mainfp);
+    //fflush(mainfp);
     assert(m_listenfd>=0);
 
     //优雅关闭连接
@@ -123,12 +123,12 @@ void WebServer::event_listen(){
 
     int ret=0;
     ret=bind(m_listenfd,(struct sockaddr *)&address,sizeof(address));
-    fputs("listenfd bind!\n",mainfp);
-    fflush(mainfp);
+    //fputs("listenfd bind!\n",mainfp);
+    //fflush(mainfp);
     assert(ret>=0);
     ret=listen(m_listenfd,5);
-    fputs("listenfd listen!\n",mainfp);
-    fflush(mainfp);
+    //fputs("listenfd listen!\n",mainfp);
+    //fflush(mainfp);
     assert(ret>=0);
 
     //utils.init(TIMESLOT);
@@ -158,10 +158,9 @@ void WebServer::event_listen(){
 
 void WebServer::timer(int connfd,struct sockaddr_in client_address)
 {
+    printf("in webserver::timer\n");
     //HttpConn数组
-    users[connfd].init(connfd,client_address,m_root,m_CONNTrigmode,m_close_log,
-    m_user,m_passwd,m_databasename);//here
-
+    users[connfd].init(connfd,client_address,m_root,m_CONNTrigmode,m_close_log,m_user,m_passwd,m_databasename);//here
     client_data[connfd].addr=client_address;
     client_data[connfd].sockfd=connfd;
     //sorted link
@@ -177,6 +176,9 @@ void WebServer::timer(int connfd,struct sockaddr_in client_address)
 
     //timeWheel
     TWTimer *timer=utils.m_time_wheel.add_timer(3*TIMESLOT);
+    timer->cb_func=cb_func;
+    timer->clientData=&client_data[connfd];
+
     client_data[connfd].timer=timer;
     LOG_INFO("add timer SUCCESS;timer: %s",timer);
 
@@ -193,6 +195,8 @@ void WebServer::timer(int connfd,struct sockaddr_in client_address)
 void WebServer::adjust_timer(TWTimer *timer,int sockfd){
     utils.m_time_wheel.del_timer(timer);
     TWTimer *timer2=utils.m_time_wheel.add_timer(3*TIMESLOT);
+    timer2->cb_func=cb_func;
+    timer2->clientData=&client_data[sockfd];
     client_data[sockfd].timer=timer2;
     LOG_INFO("adjust timer SUCCESS; new timer: %s",timer2);
 }
@@ -206,6 +210,9 @@ void WebServer::adjust_timer(TWTimer *timer,int sockfd){
 // }
 
 void WebServer::deal_timer(TWTimer *timer,int sockfd){
+    printf("WebServer::deal_timer\n");
+	fflush(stdout);
+    
     timer->cb_func(&client_data[sockfd]);
     if(timer){
         utils.m_time_wheel.del_timer(timer);
@@ -355,14 +362,14 @@ void WebServer::deal_write(int sockfd){
 }
 
 void WebServer::event_loop(){
-    extern FILE *mainfp;
+    //extern FILE *mainfp;
     bool timeout=false;
     bool stop_server=false;
 
     while(!stop_server){
         int number=epoll_wait(m_epollfd,events,MAX_EVENT_NUMBER,-1);
-        fputs("epoll_wait after\n",mainfp);
-        fflush(mainfp);
+        //fputs("epoll_wait after\n",mainfp);
+        //fflush(mainfp);
         if(number<0&&errno!=EINTR){
             LOG_ERROR("%s","epoll failure");
             break;
@@ -372,8 +379,8 @@ void WebServer::event_loop(){
             int sockfd=events[i].data.fd;
 
             if(sockfd==m_listenfd){
-                fputs("have connect\n",mainfp);
-                fflush(mainfp);
+                //fputs("have connect\n",mainfp);
+                //fflush(mainfp);
                 bool flag=deal_clientdata();
                 if(false==flag)
                     continue;
