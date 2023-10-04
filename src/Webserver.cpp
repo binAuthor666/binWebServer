@@ -94,11 +94,11 @@ void WebServer::thread_pool(){
 }
 
 void WebServer::event_listen(){
-    extern FILE *mainfp;
+    //extern FILE *mainfp;
     m_listenfd=socket(PF_INET,SOCK_STREAM,0);
     //LOG_INFO("%s,[%d]","listenfd create!",m_listenfd);
-    fputs("listenfd create!\n",mainfp);
-    fflush(mainfp);
+    //fputs("listenfd create!\n",mainfp);
+    //fflush(mainfp);
     assert(m_listenfd>=0);
 
     //优雅关闭连接
@@ -123,15 +123,16 @@ void WebServer::event_listen(){
 
     int ret=0;
     ret=bind(m_listenfd,(struct sockaddr *)&address,sizeof(address));
-    fputs("listenfd bind!\n",mainfp);
-    fflush(mainfp);
+    //fputs("listenfd bind!\n",mainfp);
+    //fflush(mainfp);
     assert(ret>=0);
     ret=listen(m_listenfd,5);
-    fputs("listenfd listen!\n",mainfp);
-    fflush(mainfp);
+    //fputs("listenfd listen!\n",mainfp);
+    //fflush(mainfp);
     assert(ret>=0);
 
-    utils.init(TIMESLOT);
+    //utils.init(TIMESLOT);
+    utils.init();
 
     epoll_event events[MAX_EVENT_NUMBER];
     m_epollfd=epoll_create(5);
@@ -157,38 +158,64 @@ void WebServer::event_listen(){
 
 void WebServer::timer(int connfd,struct sockaddr_in client_address)
 {
+    printf("in webserver::timer\n");
     //HttpConn数组
-    users[connfd].init(connfd,client_address,m_root,m_CONNTrigmode,m_close_log,
-    m_user,m_passwd,m_databasename);//here
-
+    users[connfd].init(connfd,client_address,m_root,m_CONNTrigmode,m_close_log,m_user,m_passwd,m_databasename);//here
     client_data[connfd].addr=client_address;
     client_data[connfd].sockfd=connfd;
+    //sorted link
+    // ClassTimer *timer=new ClassTimer;
+    // timer->client_data=&client_data[connfd];
+    // timer->cb_func=cb_func;
+    // time_t cur=time(NULL);
+    // timer->expire=cur+3*TIMESLOT;
 
-    ClassTimer *timer=new ClassTimer;
-    timer->client_data=&client_data[connfd];
+    // client_data[connfd].timer=timer;
+
+    // utils.m_timer_lst.add_timer(timer);
+
+    //timeWheel
+    TWTimer *timer=utils.m_time_wheel.add_timer(3*TIMESLOT);
     timer->cb_func=cb_func;
-    time_t cur=time(NULL);
-    timer->expire=cur+3*TIMESLOT;
+    timer->clientData=&client_data[connfd];
 
     client_data[connfd].timer=timer;
-
-    utils.m_timer_lst.add_timer(timer);
     LOG_INFO("add timer SUCCESS;timer: %s",timer);
 
 }
 
-void WebServer::adjust_timer(ClassTimer *timer){
-    time_t cur=time(NULL);
-    timer->expire=cur+3*TIMESLOT;
-    utils.m_timer_lst.adjust_timer(timer);
+// void WebServer::adjust_timer(ClassTimer *timer){
+//     time_t cur=time(NULL);
+//     timer->expire=cur+3*TIMESLOT;
+//     utils.m_timer_lst.adjust_timer(timer);
 
+//     LOG_INFO("%s","adjust timer once");
+// }
+
+void WebServer::adjust_timer(TWTimer *timer,int sockfd){
+    utils.m_time_wheel.del_timer(timer);
+    TWTimer *timer2=utils.m_time_wheel.add_timer(3*TIMESLOT);
+    timer2->cb_func=cb_func;
+    timer2->clientData=&client_data[sockfd];
+    client_data[sockfd].timer=timer2;
     LOG_INFO("%s","adjust timer once");
 }
 
-void WebServer::deal_timer(ClassTimer *timer,int sockfd){
+// void WebServer::deal_timer(ClassTimer *timer,int sockfd){
+//     timer->cb_func(&client_data[sockfd]);
+//     if(timer){
+//         utils.m_timer_lst.del_timer(timer);
+//     }
+//     LOG_INFO("close fd %d",client_data[sockfd].sockfd);
+// }
+
+void WebServer::deal_timer(TWTimer *timer,int sockfd){
+    printf("WebServer::deal_timer\n");
+	fflush(stdout);
+    
     timer->cb_func(&client_data[sockfd]);
     if(timer){
-        utils.m_timer_lst.del_timer(timer);
+        utils.m_time_wheel.del_timer(timer);
     }
     LOG_INFO("close fd %d",client_data[sockfd].sockfd);
 }
@@ -260,12 +287,12 @@ bool WebServer::deal_signal(bool &timeout,bool &stop_server){
 }
 
 void WebServer::deal_read(int sockfd){
-	ClassTimer *timer=client_data[sockfd].timer;
+	TWTimer *timer=client_data[sockfd].timer;
 
 	//reactor
 	if(1==m_actormodel){
         if(timer){
-            adjust_timer(timer);
+            adjust_timer(timer,sockfd);
         }
         m_threadPool->append(users+sockfd,0);
 
@@ -288,7 +315,7 @@ void WebServer::deal_read(int sockfd){
             m_threadPool->append_p(users+sockfd);
 
             if(timer){
-                adjust_timer(timer);
+                adjust_timer(timer,sockfd);
             }
         }
         else{
@@ -297,12 +324,14 @@ void WebServer::deal_read(int sockfd){
     }
 }
 
+
+
 void WebServer::deal_write(int sockfd){
-    ClassTimer *timer=client_data[sockfd].timer;
+    TWTimer *timer=client_data[sockfd].timer;
     //reactor
     if(1==m_actormodel){
         if(timer){
-            adjust_timer(timer);
+            adjust_timer(timer,sockfd);
         }
         m_threadPool->append(users+sockfd,1);
 
@@ -323,7 +352,7 @@ void WebServer::deal_write(int sockfd){
             LOG_INFO("send data to the client(%s)",inet_ntoa(users[sockfd].get_address()->sin_addr));
 
             if(timer){
-                adjust_timer(timer);
+                adjust_timer(timer,sockfd);
             }
         }
         else{
@@ -333,14 +362,14 @@ void WebServer::deal_write(int sockfd){
 }
 
 void WebServer::event_loop(){
-    extern FILE *mainfp;
+    //extern FILE *mainfp;
     bool timeout=false;
     bool stop_server=false;
 
     while(!stop_server){
         int number=epoll_wait(m_epollfd,events,MAX_EVENT_NUMBER,-1);
-        fputs("epoll_wait after\n",mainfp);
-        fflush(mainfp);
+        //fputs("epoll_wait after\n",mainfp);
+        //fflush(mainfp);
         if(number<0&&errno!=EINTR){
             LOG_ERROR("%s","epoll failure");
             break;
@@ -350,14 +379,14 @@ void WebServer::event_loop(){
             int sockfd=events[i].data.fd;
 
             if(sockfd==m_listenfd){
-                fputs("have connect\n",mainfp);
-                fflush(mainfp);
+                //fputs("have connect\n",mainfp);
+                //fflush(mainfp);
                 bool flag=deal_clientdata();
                 if(false==flag)
                     continue;
             }
             else if(events[i].events&(EPOLLRDHUP|EPOLLHUP|EPOLLERR)){
-                ClassTimer *timer=client_data[sockfd].timer;
+                TWTimer *timer=client_data[sockfd].timer;
                 deal_timer(timer,sockfd);
             }
             else if((sockfd==m_pipefd[0])&&(events[i].events&EPOLLIN)){

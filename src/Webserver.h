@@ -11,9 +11,12 @@
 #include<fcntl.h>
 #include<stdlib.h>
 #include<assert.h>
-#include"./Timer/LstTimer.h"
+//#include"./Timer/LstTimer.h"
 #include"./Http/HttpConn.h"
 #include"./ThreadPool/ThreadPool.h"
+#include"./Timer/TWTimer.h"
+#include"./Timer/TimeWheel.h"
+#include"./Timer/Utils.h"
 
 
 const int MAX_FD=65536;
@@ -38,8 +41,11 @@ public:
     void event_loop();
 
     void timer(int connfd,struct sockaddr_in client_address);
-    void adjust_timer(ClassTimer *timer);
-    void deal_timer(ClassTimer *timer,int sockfd);
+    //void adjust_timer(ClassTimer *timer);
+    void adjust_timer(TWTimer *timer,int sockfd);
+    //void deal_timer(ClassTimer *timer,int sockfd);
+    void deal_timer(TWTimer *timer,int sockfd);
+
     bool deal_clientdata();
     bool deal_signal(bool &timeout,bool &stop_server);
     void deal_read(int sockfd);

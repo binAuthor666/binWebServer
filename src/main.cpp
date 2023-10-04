@@ -1,9 +1,9 @@
 #include"Config.h"
 #include"Webserver.h"
-FILE *mainfp;
+//FILE *mainfp;
 int main(int argc,char *argv[]){
     
-    mainfp=fopen("./mainlog","a");
+    //mainfp=fopen("./mainlog","a");
     std::string user="root";
     std::string password="passwd";
     std::string databasename="bindb";
@@ -25,6 +25,6 @@ int main(int argc,char *argv[]){
     server.event_listen();
 
     server.event_loop();
-    fclose(mainfp);
+    //fclose(mainfp);
     return 0;
 }
