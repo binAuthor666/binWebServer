@@ -198,7 +198,7 @@ void WebServer::adjust_timer(TWTimer *timer,int sockfd){
     timer2->cb_func=cb_func;
     timer2->clientData=&client_data[sockfd];
     client_data[sockfd].timer=timer2;
-    LOG_INFO("adjust timer SUCCESS; new timer: %s",timer2);
+    LOG_INFO("%s","adjust timer once");
 }
 
 // void WebServer::deal_timer(ClassTimer *timer,int sockfd){

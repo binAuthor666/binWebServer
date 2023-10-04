@@ -1,4 +1,5 @@
 #include"HttpConn.h"
+#include<fstream>
 
 const char *ok_200_title="OK";
 const char *error_400_title="Bad Request";
@@ -63,6 +64,7 @@ string user,string passwd,string sqlname){
     addfd(m_epollfd,sockfd,true,m_TRIGMode);
     m_user_count++;
 
+    //当游览器出现连接重置时，可能是网站根目录出错或http响应格式出错或者访问的文件中内容完全为空
     doc_root=root;
     m_TRIGMode=TRIGMode;
     m_close_log=close_log;
@@ -99,7 +101,7 @@ void HttpConn::init(){
 }
 
 HttpConn::HTTP_CODE HttpConn::process_read(){
-    LOG_INFO("INTO process_read\n");
+    //LOG_INFO("INTO process_read\n");
     LINE_STATUS line_status=LINE_OK;
     HTTP_CODE ret=NO_REQUEST;
     char *text=0;
@@ -143,7 +145,7 @@ HttpConn::HTTP_CODE HttpConn::process_read(){
 }
 
 HttpConn::LINE_STATUS HttpConn::parse_line(){
-    LOG_INFO("into parse_line(从状态机分析)\n");
+    //LOG_INFO("into parse_line(从状态机分析)\n");
     char temp;
     for(;m_checked_idx<m_read_idx;++m_checked_idx){
         temp=m_read_buf[m_checked_idx];
@@ -172,13 +174,13 @@ HttpConn::LINE_STATUS HttpConn::parse_line(){
 
 }
 HttpConn::HTTP_CODE HttpConn::parse_request_line(char *text){
-    LOG_INFO("INTO parse_request_line\n");
+    //LOG_INFO("INTO parse_request_line\n");
     //请求行各部分之间通过\t或空格分隔
     m_url=strpbrk(text," \t");
     if(!m_url){
         return BAD_REQUEST;
     }
-    *m_url++='\0';
+    *m_url++ ='\0';
     char *method=text;
     if(strcasecmp(method,"GET")==0){
         m_method=GET;
@@ -195,7 +197,7 @@ HttpConn::HTTP_CODE HttpConn::parse_request_line(char *text){
     }
     *m_version++='\0';
     m_version+=strspn(m_version," \t");
-    LOG_INFO("parse_request_line;url:%s\n",m_url);
+    //LOG_INFO("parse_request_line;url:%s\n",m_url);
     if(strcasecmp(m_version,"HTTP/1.1")!=0){//仅支持HTTP/1.1
         return BAD_REQUEST;
     }
@@ -224,7 +226,7 @@ HttpConn::HTTP_CODE HttpConn::parse_request_line(char *text){
 }
 
 HttpConn::HTTP_CODE HttpConn::parse_header(char *text){
-    LOG_INFO("INTO parse_header\n");
+    //LOG_INFO("INTO parse_header\n");
     //当前是空行
     if(text[0]=='\0'){
         if(m_content_length!=0){
@@ -252,7 +254,7 @@ HttpConn::HTTP_CODE HttpConn::parse_header(char *text){
         m_host=text;
     }
     else{
-        LOG_INFO("unknown header: %s",text);
+        LOG_INFO("oop!unknown header: %s",text);
     }
     return NO_REQUEST;
 }
@@ -265,7 +267,7 @@ HttpConn::HTTP_CODE HttpConn::parse_content(char *text){
     return NO_REQUEST;
 }
 HttpConn::HTTP_CODE HttpConn::do_request(){
-    LOG_INFO("INTO do_request\n");
+    //LOG_INFO("INTO do_request\n");
     strcpy(m_real_file,doc_root);
     int len=strlen(doc_root);
     const char *p=strrchr(m_url,'/');
@@ -387,7 +389,7 @@ HttpConn::HTTP_CODE HttpConn::do_request(){
     return FILE_REQUEST;
 }
 bool HttpConn::process_write(HTTP_CODE ret){
-    LOG_INFO("INTO process_write\n");
+    //LOG_INFO("INTO process_write\n");
     switch(ret){
         case INTERNAL_ERROR:
         {
@@ -470,7 +472,7 @@ bool HttpConn::add_response(const char *format, ...){
     return true;
 }
 bool HttpConn::add_status_line(int status,const char *title){
-    LOG_INFO("INTO add_status_line;status:%d,title:%s\n",status,title);
+    //LOG_INFO("INTO add_status_line;status:%d,title:%s\n",status,title);
     return add_response("%s %d %s\r\n","HTTP/1.1",status,title);
 }
 bool HttpConn::add_header(int content_length){
@@ -478,22 +480,22 @@ bool HttpConn::add_header(int content_length){
             add_blank_line();
 }
 bool HttpConn::add_content(const char *content){
-    LOG_INFO("INTO add_header;content:%s\n",content);
+    //LOG_INFO("INTO add_header;content:%s\n",content);
     return add_response("%s",content);
 }
 bool HttpConn::add_content_length(int content_length){
-    LOG_INFO("INTO add_header;content_length:%d\n",content_length);
+    //LOG_INFO("INTO add_header;content_length:%d\n",content_length);
     return add_response("Content-Length:%d\r\n",content_length);
 }
 bool HttpConn::add_linger(){
-    LOG_INFO("INTO add_header;add_linger\n");
+    //LOG_INFO("INTO add_header;add_linger\n");
     return add_response("Connection:%s\r\n",(m_linger==true)?"keep-alive":"close");
 }
 bool HttpConn::add_blank_line(){
     return add_response("%s","\r\n");
 }
 bool HttpConn::add_content_type(){
-    LOG_INFO("INTO add_header;add_content_type\n");
+    //LOG_INFO("INTO add_header;add_content_type\n");
     return add_response("Content-Type:%s\r\n","text/html");
 }
 
@@ -505,8 +507,8 @@ void HttpConn::unmap(){
 }
 
 void HttpConn::close_conn(bool real_close){
-    LOG_INFO("CLOSE HTTPCONNECTION,sockfd:%d\n",m_sockfd);
-    if(real_close&&m_sockfd!=-1){
+    //LOG_INFO("CLOSE HTTPCONNECTION,sockfd:%d\n",m_sockfd);
+    if(real_close&&(m_sockfd!=-1)){
         printf("close sockfd %d\n",m_sockfd);
         removefd(m_epollfd,m_sockfd);
         //修改，删除定时器
@@ -516,7 +518,7 @@ void HttpConn::close_conn(bool real_close){
     }
 }
 void HttpConn::process(){
-    LOG_INFO("INTO process\n");
+    //LOG_INFO("INTO process\n");
     HTTP_CODE read_ret=process_read();
     if(read_ret==NO_REQUEST){
         modfd(m_epollfd,m_sockfd,EPOLLIN,m_TRIGMode);
@@ -532,7 +534,7 @@ void HttpConn::process(){
     modfd(m_epollfd,m_sockfd,EPOLLOUT,m_TRIGMode);
 }
 bool HttpConn::read_once(){
-    LOG_INFO("into read_once;use recv() func\n");
+    //LOG_INFO("into read_once;use recv() func\n");
     if(m_read_idx>=READ_BUFFER_SIZE){
         return false;
     }
@@ -565,7 +567,7 @@ bool HttpConn::read_once(){
     }
 }
 bool HttpConn::write(){
-    LOG_INFO("INTO write()\n");
+    //LOG_INFO("INTO write()\n");
     int temp=0;
 
     if(bytes_to_send==0){
@@ -608,7 +610,7 @@ bool HttpConn::write(){
     }
 }
 void HttpConn::init_mysql_map(SqlConnPool *sqlconnpool){
-    LOG_INFO("INTO HttpConn::init_mysql_map\n");
+    //LOG_INFO("INTO HttpConn::init_mysql_map\n");
     MYSQL *mysql=NULL;
     SqlConnectionRAII mysqlconn(&mysql,sqlconnpool);//here
 
